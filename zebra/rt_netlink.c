@@ -2052,6 +2052,12 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 		tag = dplane_ctx_get_old_tag(ctx);
 	else
 		tag = dplane_ctx_get_tag(ctx);
+
+	/*
+	 * Low 16-bit only. Kernel will try to combind input/output route tag
+	 * into 32-bit tclassid of dst_entry for forwarding packets.
+	 */
+	tag &= 0xFFFF;
 #endif
 
 	/* Table corresponding to this route. */
