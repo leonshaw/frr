@@ -2654,6 +2654,8 @@ int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
 
+	cmd_xfrr_end_config(vty);
+
 	/* Perform any pending commits. */
 	(void)nb_cli_pending_commit_check(vty);
 
