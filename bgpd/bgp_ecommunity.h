@@ -299,6 +299,8 @@ extern bool ecommunity_match(const struct ecommunity *,
 extern char *ecommunity_str(struct ecommunity *);
 extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *,
 						uint8_t, uint8_t);
+extern struct ecommunity_val *ecommunity_lookup_subtype(const struct ecommunity *,
+							uint8_t);
 
 extern bool ecommunity_add_val(struct ecommunity *ecom,
 			       struct ecommunity_val *eval,

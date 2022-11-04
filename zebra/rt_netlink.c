@@ -1685,11 +1685,7 @@ static bool _netlink_route_build_singlepath(const struct prefix *p,
 static inline bool _netlink_set_tag(struct nlmsghdr *n, unsigned int maxlen,
 				    route_tag_t tag)
 {
-	if (tag > 0 && tag <= 255) {
-		if (!nl_attr_put32(n, maxlen, RTA_FLOW, tag))
-			return false;
-	}
-	return true;
+	return nl_attr_put32(n, maxlen, RTA_FLOW, tag);
 }
 
 /* This function takes a nexthop as argument and

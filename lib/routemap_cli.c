@@ -908,10 +908,11 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	set_tag, set_tag_cmd,
-	"set tag (1-4294967295)$tag",
+	"set tag <(1-4294967295)|soo>$tag",
 	SET_STR
 	"Tag value for routing protocol\n"
-	"Tag value\n")
+	"Tag value\n"
+	"Derive tag from SoO ext-commmunity (BGP)\n")
 {
 	const char *xpath = "./set-action[action='frr-route-map:set-tag']";
 	char xpath_value[XPATH_MAXLEN];
@@ -919,18 +920,19 @@ DEFPY_YANG(
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
 	snprintf(xpath_value, sizeof(xpath_value), "%s/rmap-set-action/tag",
 		 xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, tag_str);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, tag);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(
 	no_set_tag, no_set_tag_cmd,
-	"no set tag [(1-4294967295)]",
+	"no set tag [(1-4294967295)|soo]",
 	NO_STR
 	SET_STR
 	"Tag value for routing protocol\n"
-	"Tag value\n")
+	"Tag value\n"
+	"Derive tag from SoO ext-commmunity (BGP)\n")
 {
 	const char *xpath = "./set-action[action='frr-route-map:set-tag']";
 

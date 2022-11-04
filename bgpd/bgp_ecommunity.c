@@ -1300,6 +1300,26 @@ extern struct ecommunity_val *ecommunity_lookup(const struct ecommunity *ecom,
 	return NULL;
 }
 
+struct ecommunity_val *ecommunity_lookup_subtype(const struct ecommunity *ecom,
+						 uint8_t subtype)
+{
+	uint8_t *p;
+	uint32_t c;
+
+	if (!ecom)
+		return NULL;
+
+	/* If the value already exists in the structure return 0.  */
+	c = 0;
+	for (p = ecom->val; c < ecom->size; p += ecom->unit_size, c++) {
+		if (p == NULL)
+			continue;
+		if (p[1] == subtype)
+			return (struct ecommunity_val *)p;
+	}
+	return NULL;
+}
+
 /* remove ext. community matching type and subtype
  * return 1 on success ( removed ), 0 otherwise (not present)
  */

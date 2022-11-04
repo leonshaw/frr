@@ -3082,28 +3082,91 @@ static const struct route_map_rule_cmd route_set_aggregator_as_cmd = {
 	route_set_aggregator_as_free,
 };
 
+struct rmap_set_tag_arg {
+	enum {
+		RMAP_SET_TAG_LITERAL,
+		RMAP_SET_TAG_SOO,
+	} type;
+	union {
+		route_tag_t tag;
+	};
+};
+
 /* Set tag to object. object must be pointer to struct bgp_path_info */
 static enum route_map_cmd_result_t
 route_set_tag(void *rule, const struct prefix *prefix, void *object)
 {
-	route_tag_t *tag;
-	struct bgp_path_info *path;
+	struct rmap_set_tag_arg *arg = rule;
+	struct bgp_path_info *path = object;
+	struct ecommunity_val *soo_val;
+	uint16_t tmp16;
+	uint32_t tmp32;
+	route_tag_t tag = 0;
 
-	tag = rule;
-	path = object;
+	switch (arg->type) {
+	case RMAP_SET_TAG_LITERAL:
+		tag = arg->tag;
+		break;
+	case RMAP_SET_TAG_SOO:
+		soo_val = ecommunity_lookup_subtype(path->attr->ecommunity,
+						    ECOMMUNITY_SITE_ORIGIN);
+		if (!soo_val) {
+			return RMAP_OKAY;
+		}
+		switch (soo_val->val[0]) {
+		case ECOMMUNITY_ENCODE_AS:
+			ptr_get_be32((uint8_t *)soo_val->val + 4, &tmp32);
+			tag = tmp32;
+			break;
+		case ECOMMUNITY_ENCODE_IP:
+			/* FIXME: IPv6 */
+			/* fall-through */
+		case ECOMMUNITY_ENCODE_AS4:
+			ptr_get_be16((uint8_t *)soo_val->val + 6, &tmp16);
+			tag = tmp16;
+			break;
+		}
+		break;
+	default:
+		return RMAP_ERROR;
+	}
 
-	/* Set tag value */
-	path->attr->tag = *tag;
-
+	path->attr->tag = tag;
 	return RMAP_OKAY;
+}
+
+static void *route_set_tag_compile(const char *arg)
+{
+	struct rmap_set_tag_arg *rule;
+	char *endptr;
+	unsigned long tmp;
+
+	if (strcmp(arg, "soo") == 0) {
+		rule = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*rule));
+		rule->type = RMAP_SET_TAG_SOO;
+	} else {
+		tmp = strtoul(arg, &endptr, 10);
+		if (arg[0] == '\0' || *endptr != '\0' || errno ||
+		    tmp > ROUTE_TAG_MAX)
+			return NULL;
+		rule = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(*rule));
+		rule->type = RMAP_SET_TAG_LITERAL;
+		rule->tag = (route_tag_t)tmp;
+	}
+	return rule;
+}
+
+static void route_set_tag_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
 /* Route map commands for tag set. */
 static const struct route_map_rule_cmd route_set_tag_cmd = {
 	"tag",
 	route_set_tag,
-	route_map_rule_tag_compile,
-	route_map_rule_tag_free,
+	route_set_tag_compile,
+	route_set_tag_free,
 };
 
 /* Set label-index to object. object must be pointer to struct bgp_path_info */

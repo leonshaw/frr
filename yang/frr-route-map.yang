@@ -348,8 +348,11 @@ module frr-route-map {
         case set-tag {
           when "derived-from-or-self(../action, 'set-tag')";
           leaf tag {
-            type uint32 {
-              range "0..4294967295";
+            type union {
+              type uint32 {
+                range "0..4294967295";
+              }
+              type string;
             }
             description
               "Tag value";
