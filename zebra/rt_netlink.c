@@ -1000,6 +1000,7 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 				__func__, &p);
 			XFREE(MTYPE_RE, re);
 		}
+		nexthop_group_delete(&ng);
 	} else {
 		if (nhe_id) {
 			rib_delete(afi, SAFI_UNICAST, vrf_id, proto, 0, flags,
