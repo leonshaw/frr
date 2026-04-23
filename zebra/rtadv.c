@@ -981,11 +981,48 @@ static void rtadv_read(struct event *event)
 	rtadv_process_packet(buf, (unsigned)len, ifindex, hoplimit, &from, zvrf);
 }
 
+static void rtadv_drain_sock(int sock)
+{
+	uint8_t buf[64];
+	ssize_t n;
+
+	while (true) {
+		n = recv(sock, buf, sizeof(buf), MSG_DONTWAIT | MSG_TRUNC);
+		if (n == 0 || (n < 0 && errno != EINTR))
+			return;
+	}
+}
+
+static int rtadv_set_sock_filter(int sock, bool allow)
+{
+	struct icmp6_filter filter;
+	int ret;
+
+	ICMP6_FILTER_SETBLOCKALL(&filter);
+	if (allow) {
+		ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
+		ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
+	}
+	ret = setsockopt(sock, IPPROTO_ICMPV6, ICMP6_FILTER, &filter,
+			 sizeof(struct icmp6_filter));
+	if (ret < 0) {
+		zlog_info("ICMP6_FILTER set fail: %s", safe_strerror(errno));
+		return ret;
+	}
+	if (!allow) {
+		/*
+		 * Drain packets from recv buffer in case they arrive before
+		 * setting the filter.
+		 */
+		rtadv_drain_sock(sock);
+	}
+	return 0;
+}
+
 static int rtadv_make_socket(ns_id_t ns_id)
 {
 	int sock = -1;
 	int ret = 0;
-	struct icmp6_filter filter;
 	int error;
 
 /* Limit receive buffer size to avoid unbounded growth under abnormal load */
@@ -1042,14 +1079,8 @@ static int rtadv_make_socket(ns_id_t ns_id)
 		return ret;
 	}
 
-	ICMP6_FILTER_SETBLOCKALL(&filter);
-	ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
-	ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
-
-	ret = setsockopt(sock, IPPROTO_ICMPV6, ICMP6_FILTER, &filter,
-			 sizeof(struct icmp6_filter));
+	ret = rtadv_set_sock_filter(sock, false);
 	if (ret < 0) {
-		zlog_info("ICMP6_FILTER set fail: %s", safe_strerror(errno));
 		close(sock);
 		return ret;
 	}
@@ -2010,11 +2041,13 @@ static void rtadv_event(struct zebra_vrf *zvrf, enum rtadv_event event, int val)
 
 	switch (event) {
 	case RTADV_START:
+		rtadv_set_sock_filter(rtadv->sock, true);
 		event_add_read(zrouter.master, rtadv_read, zvrf, rtadv->sock,
 			       &rtadv->ra_read);
 
 		break;
 	case RTADV_STOP:
+		rtadv_set_sock_filter(rtadv->sock, false);
 		event_cancel(&rtadv->ra_timer);
 		event_cancel(&rtadv->ra_read);
 		break;
